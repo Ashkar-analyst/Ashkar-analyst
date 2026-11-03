@@ -30,6 +30,21 @@ An Expert Advisor that scans a list of forex pairs and commodities (gold, silver
 - **News filter:** skips entries 30 minutes before or after high-impact events for that symbol's currencies, using the MT5 economic calendar. This only works live or on demo, not in the Strategy Tester.
 - **Demo-only safety switch:** `InpDemoOnly = true` by default. With it on, the EA refuses to run on a real account.
 
+## Setting it up using only a phone
+
+The MT5 phone app **can't run Expert Advisors**. The EA has to run on a Windows computer, but that computer can be a cloud VPS that you control from your phone.
+
+1. **Get a Windows VPS.** Use the Exness VPS (Personal Area → *VPS hosting*, free if your account meets their deposit/volume terms) or any Windows VPS provider.
+2. **Install a remote desktop app** on your phone: Microsoft **"Windows App"** (formerly *Remote Desktop*), free on Android and iOS. Add the VPS's IP address, username and password.
+3. **Inside the VPS** (through the remote desktop app):
+   - Download MT5 from the Exness Personal Area and log in to your **demo** account.
+   - Open this file in the VPS's browser and save it (Ctrl+S) as `MomentumScannerEA.mq5`:
+     `https://raw.githubusercontent.com/Ashkar-analyst/Ashkar-analyst/ccr-594a8543-7h60f9/MomentumScannerEA/MomentumScannerEA.mq5`
+   - In MT5, go to **File → Open Data Folder → MQL5 → Experts**, move the file there, then compile it in MetaEditor (F7).
+   - Turn on **Algo Trading**, then attach the EA to one chart (see *Installing* below).
+4. **Phone alerts:** in the MT5 phone app, open *Settings → Messages* and copy your **MetaQuotes ID**. On the VPS terminal, go to *Tools → Options → Notifications*, tick *Enable push notifications* and paste the ID. The EA then alerts your phone on every trade it opens and when a risk limit is hit.
+5. **Monitor from the MT5 phone app.** Log in to the same Exness account and you'll see every trade the EA places. Don't close the remote desktop window's MT5. Just disconnect, and the VPS keeps running.
+
 ## Installing on Exness MT5
 
 1. Open an Exness **MT5** account. Start with a **demo** account. Standard, Pro, Raw Spread and Zero all work. Raw/Zero have lower spreads, which helps this kind of strategy.

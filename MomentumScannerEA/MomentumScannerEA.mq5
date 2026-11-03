@@ -98,6 +98,7 @@ input int    InpSlippagePoints    = 20;   // Max slippage (points)
 input string InpTradeComment      = "MomentumEA"; // Order comment
 input bool   InpVerbose           = true; // Print decisions to the Experts log
 input bool   InpShowPanel         = true; // Show status panel on chart
+input bool   InpPushNotifications = true; // Send push alerts to the MT5 phone app
 
 //--------------------------- Types / globals ------------------------
 struct SymbolData
@@ -146,6 +147,15 @@ void Log(const string msg)
   {
    if(InpVerbose)
       Print("[MomentumEA] ", msg);
+  }
+
+// Push notification to the MetaTrader 5 mobile app (needs MetaQuotes ID set in
+// Tools > Options > Notifications on the terminal running the EA)
+void Notify(const string msg)
+  {
+   Log(msg);
+   if(InpPushNotifications && !MQLInfoInteger(MQL_TESTER) && TerminalInfoInteger(TERMINAL_NOTIFICATIONS_ENABLED))
+      SendNotification("MomentumEA: " + msg);
   }
 
 bool CopyVal(const int handle, const int buffer, const int shift, const int count, double &out[])
@@ -339,7 +349,7 @@ void UpdateRiskState()
       if(dayLossPct >= InpDailyLossLimitPct)
         {
          g_haltedToday = true;
-         Log(StringFormat("Daily loss limit hit (%.2f%%). No new trades until tomorrow.", dayLossPct));
+         Notify(StringFormat("Daily loss limit hit (%.2f%%). No new trades until tomorrow.", dayLossPct));
          if(InpCloseOnDailyLimit)
             CloseAllOurPositions("daily loss limit");
         }
@@ -352,7 +362,7 @@ void UpdateRiskState()
         {
          g_haltedDD = true;
          GlobalVariableSet(GvName("ddlock"), 1.0);
-         Log(StringFormat("MAX DRAWDOWN %.2f%% reached. Closing all trades and locking the EA.", ddPct));
+         Notify(StringFormat("MAX DRAWDOWN %.2f%% reached. Closing all trades and locking the EA.", ddPct));
          CloseAllOurPositions("max drawdown");
         }
      }
@@ -682,7 +692,7 @@ void OpenTrade(const Candidate &c)
                          : g_trade.Sell(lots, sym, 0.0, sl, tp, InpTradeComment);
    uint rc = g_trade.ResultRetcode();
    if(ok && (rc == TRADE_RETCODE_DONE || rc == TRADE_RETCODE_PLACED || rc == TRADE_RETCODE_DONE_PARTIAL))
-      Log(StringFormat("%s %s %.2f lots @ %s  SL %s  TP %s  (score %.2f, risk %.2f%%)",
+      Notify(StringFormat("%s %s %.2f lots @ %s  SL %s  TP %s  (score %.2f, risk %.2f%%)",
                        side, sym, lots,
                        DoubleToString(entry, (int)SymbolInfoInteger(sym, SYMBOL_DIGITS)),
                        DoubleToString(sl, (int)SymbolInfoInteger(sym, SYMBOL_DIGITS)),
