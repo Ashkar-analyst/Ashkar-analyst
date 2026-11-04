@@ -63,7 +63,8 @@ def report(bot: Bot, missed_min_multiple: float) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="memebot", description="Solana memecoin paper-trading bot")
-    ap.add_argument("command", choices=["run", "report", "reset"])
+    ap.add_argument("command", choices=["run", "report", "close", "reset"])
+    ap.add_argument("--hours", type=float, help="run: session length; stops buying near the end, then closes positions")
     ap.add_argument("--config", default="config.toml")
     ap.add_argument("--missed", type=float, default=5.0, help="report: show skipped tokens that ran at least this multiple")
     args = ap.parse_args(argv)
@@ -79,7 +80,8 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     setup_logging(cfg.data_dir)
-    try:
-        Bot(cfg).run()
-    except KeyboardInterrupt:
-        print("\nStopped. Run `python -m memebot report` to see results.")
+    if args.command == "close":
+        Bot(cfg).close_session("manual close")
+        return
+    Bot(cfg).run(args.hours)
+    print("Stopped. Run `python -m memebot report` to see results.")

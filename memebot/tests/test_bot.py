@@ -201,3 +201,30 @@ def test_config_file_overrides(tmp_path):
     p.write_text("typo_setting = 1\n")
     with pytest.raises(ValueError):
         Config.load(p)
+
+
+def test_wind_down_blocks_new_buys(setup):
+    cfg, dex, rug, clock, bot = setup
+    bot.no_new_buys_after = clock.t - 1
+    dex.new = ["LATE"]
+    dex.data["LATE"] = market("LATE")
+    bot.cycle()
+    assert "LATE" not in bot.portfolio.positions
+    assert bot.watch["LATE"]["status"] == "watching"
+
+
+def test_close_session_sells_all_but_moonbags(setup):
+    cfg, dex, rug, clock, bot = setup
+    dex.new = ["FLAT", "RAN"]
+    dex.data["FLAT"] = market("FLAT", price=1.0)
+    dex.data["RAN"] = market("RAN", price=1.0)
+    bot.cycle()
+    dex.data["RAN"] = market("RAN", price=2.5)  # hits the 2x take-profit
+    bot.cycle()
+    bot.close_session()
+    assert list(bot.portfolio.positions) == ["RAN"]
+    assert bot.portfolio.closed[-1]["exit_reason"] == "session end"
+
+    cfg.keep_moonbags_overnight = False
+    bot.close_session()
+    assert bot.portfolio.positions == {}

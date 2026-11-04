@@ -48,6 +48,10 @@ class Config:
     rug_liquidity_drop_pct: float = 70  # liquidity fell this much since entry = treat as rug, exit
     missing_data_cycles: int = 15      # token vanished from the API this many cycles in a row = written off
 
+    # --- daily sessions (python -m memebot run --hours 4) ---
+    wind_down_minutes: float = 60      # stop opening new positions this long before the session ends
+    keep_moonbags_overnight: bool = True  # at session end keep positions that already hit a take-profit
+
     # --- watchlist / missed-opportunity tracking ---
     track_hours: float = 24            # keep tracking skipped tokens this long to see if they pumped
     max_tracked_tokens: int = 600      # cap on tokens refreshed each cycle (API rate limits)

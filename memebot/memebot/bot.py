@@ -31,6 +31,7 @@ class Bot:
         self.state_path = self.dir / "state.json"
         self.portfolio, self.watch = self._load()
         self.broker = PaperBroker(cfg, self.portfolio, TradeLog(self.dir / "trades.csv"))
+        self.no_new_buys_after: float | None = None  # set by run(hours=...)
 
     # ---------- persistence ----------
     def _load(self) -> tuple[Portfolio, dict[str, dict]]:
@@ -99,6 +100,8 @@ class Bot:
                 log.info("SELL %s %s -> $%.2f (%s)", pos.symbol, f"{pos.multiple(m.price_usd):.2f}x", usd, order.reason)
 
     def _find_entries(self, markets: dict[str, Market], now: float) -> None:
+        if self.no_new_buys_after is not None and now >= self.no_new_buys_after:
+            return  # winding down before session end
         for addr, w in self.watch.items():
             if w["status"] != "watching" or addr in self.portfolio.positions:
                 continue
@@ -139,14 +142,45 @@ class Bot:
             if addr not in self.portfolio.positions:
                 del self.watch[addr]
 
-    # ---------- forever ----------
-    def run(self) -> None:
-        log.info("Paper trading. Balance $%.2f, $%.2f per trade. Ctrl+C to stop.",
+    def close_session(self, reason: str = "session end") -> None:
+        """Sell open positions so nothing sits unmanaged while the bot is off.
+
+        Positions that already hit a take-profit (stake recovered) are kept if
+        keep_moonbags_overnight is on; the next session picks them up again.
+        """
+        to_close = [p for p in self.portfolio.positions.values()
+                    if not (self.cfg.keep_moonbags_overnight and p.tp_hits)]
+        if to_close:
+            markets = self.dex.markets([p.address for p in to_close])
+            for pos in to_close:
+                m = markets.get(pos.address)
+                if m is None:
+                    log.warning("%s: no price available, left open", pos.symbol)
+                    continue
+                usd = self.broker.sell(pos, pos.remaining, m.price_usd, reason)
+                log.info("SELL %s %.2fx -> $%.2f (%s)", pos.symbol, pos.multiple(m.price_usd), usd, reason)
+        kept = len(self.portfolio.positions)
+        self.save()
+        log.info("Session closed. Equity $%.2f. %d moonbag(s) kept for next session.",
+                 self.portfolio.equity(), kept)
+
+    # ---------- main loop ----------
+    def run(self, hours: float | None = None) -> None:
+        end = time.time() + hours * 3600 if hours else None
+        if end:
+            self.no_new_buys_after = end - self.cfg.wind_down_minutes * 60
+            log.info("Session: %.1f h. New buys stop %.0f min before the end; then positions close.",
+                     hours, self.cfg.wind_down_minutes)
+        log.info("Paper trading. Equity $%.2f, $%.2f per trade. Ctrl+C to stop early.",
                  self.portfolio.equity(), self.cfg.position_size_usd)
-        while True:
-            started = time.time()
-            try:
-                self.cycle()
-            except Exception:  # keep the bot alive through API hiccups
-                log.exception("cycle failed")
-            time.sleep(max(1.0, self.cfg.poll_seconds - (time.time() - started)))
+        try:
+            while end is None or time.time() < end:
+                started = time.time()
+                try:
+                    self.cycle()
+                except Exception:  # keep the bot alive through API hiccups
+                    log.exception("cycle failed")
+                time.sleep(max(1.0, self.cfg.poll_seconds - (time.time() - started)))
+        except KeyboardInterrupt:
+            log.info("Stopping early...")
+        self.close_session()

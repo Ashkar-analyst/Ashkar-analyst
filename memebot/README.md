@@ -34,11 +34,20 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp config.example.toml config.toml # optional: edit settings
 
-python -m memebot run              # leave it running; Ctrl+C to stop
+python -m memebot run --hours 4    # a 4-hour session (see "Daily sessions" below)
+python -m memebot run              # no time limit; Ctrl+C to stop
 python -m memebot report           # in another terminal: P&L, open positions, missed runners
 python -m memebot report --missed 20   # only show skipped tokens that went 20x+
+python -m memebot close            # close positions now (e.g. if the session was cut short)
 python -m memebot reset            # wipe paper data and start over
 ```
+
+## Daily sessions (laptop not on 24/7)
+
+`run --hours N` runs for N hours. In the last hour it stops opening new positions, and
+when time is up it sells everything **except moonbags** (positions that already hit a
+take-profit, so your stake is already back). Moonbags carry over to the next session.
+Ctrl+C does the same early. So nothing unprotected is left open while the laptop is off.
 
 Everything is saved in `data/`: `state.json` (portfolio, survives restarts),
 `trades.csv` (every simulated buy and sell, opens in Excel/Tableau) and `bot.log`.
